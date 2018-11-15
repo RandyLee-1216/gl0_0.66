@@ -249,10 +249,6 @@ def test(
         test_loader = utils.load(
             data_dir='../data/solar/test', 
             batch_size=batch_size, img_size=64)
-    elif test_data == 'middle_white':
-        test_loader, num_h, num_v = utils.load_full_chip(
-            data_dir='../data/middle_white/full_chip',
-            dataname=dataset, batch_size=batch_size, img_size=64)
     elif test_data == 'gas_leak_dirt':
         test_loader, num_h, num_v = utils.load_full_chip(
             data_dir='../data/gas_leak_dirt/full_chip',
@@ -265,46 +261,6 @@ def test(
         test_loader = utils.load(
             data_dir='../data/wood/ok', 
             batch_size=batch_size, img_size=64, convert='L')
-    elif test_data == 'marker':
-        test_loader = utils.load(
-            data_dir='../data/wood/marker',
-            batch_size=batch_size, img_size=64, convert='L')
-    elif test_data == 'lubricant':
-        test_loader = utils.load(
-            data_dir='../data/wood/lubricant',
-            batch_size=batch_size, img_size=64, convert='L')
-    elif test_data == 'hot_glue':
-        test_loader = utils.load(
-            data_dir='../data/wood/hot_glue',
-            batch_size=batch_size, img_size=64, convert='L')
-    elif test_data == 'crack':
-        test_loader = utils.load(
-            data_dir='../data/wood/crack',
-            batch_size=batch_size, img_size=64, convert='L')
-    elif test_data == 'DAGM_10':
-        test_loader = utils.load(
-            data_dir='../data/DAGM_10/ng',
-            batch_size=batch_size, img_size=128, convert='L')
-    elif test_data == 'DAGM_8':
-        test_loader = utils.load(
-            data_dir='../data/DAGM_8/ng',
-            batch_size=batch_size, img_size=128, convert='L')
-    elif test_data == 'benq':
-        test_loader = utils.load(
-            data_dir='../data/benq/ok',
-            batch_size=batch_size, img_size=128, convert='L')    
-    elif test_data == 'dent':
-        test_loader = utils.load(
-            data_dir= '/home/itri/kevin/data/benq/trainB',
-            batch_size=batch_size, img_size=128, convert='L')
-    elif test_data == 'dark':
-        test_loader = utils.load(
-            data_dir= '../0713/0713/NG_eqal',
-            batch_size=batch_size, img_size=150, convert='L')
-    elif test_data == 'dark2':
-        test_loader = utils.load(
-            data_dir= '../dark/dark/OK',
-            batch_size=batch_size, img_size=128, convert='L')
     elif dataset == 'lens':
         test_loader = utils.load(
             #data_dir='../contact_lens/line/cut/ng',
@@ -352,8 +308,6 @@ def test(
     if dataset == 'solar':
         g = maybe_cuda(Generator(code_dim))
     elif dataset == 'wood':
-        g = maybe_cuda(Generator(code_dim, out_channels=1))
-    elif dataset == 'wood_mixed':
         g = maybe_cuda(Generator(code_dim, out_channels=1))
     else:
         g = maybe_cuda(Generator_150(code_dim, out_channels=1))
@@ -415,30 +369,9 @@ def test(
             losses.append(loss.item())
             progress.set_postfix({'loss': np.mean(losses[-100:])})
             progress.update()
-        
-        '''
-        if not dataset == 'wood' and not dataset == 'solar' and not dataset == 'benq':
-            # reconstruction and defect map
-            rec_numpy = rec.data.cpu().numpy().transpose(0,2,3,1)
-            diff_numpy = (Xi-rec).data.cpu().numpy().transpose(0,2,3,1)
-            for j in range(batch_size):
-                # get row and col
-                row = idx[j] // num_v
-                col = idx[j] % num_h
-            
-                diff_img[row*64:(row+1)*64,col*64:(col+1)*64] = diff_numpy[j]
-                rec_img[row*64:(row+1)*64,col*64:(col+1)*64] = rec_numpy[j]
 
-            utils.imsave(test_save_dir+'/%s_rec_epoch_%03d.png' % (image_output_prefix, epoch+1), 
-               make_grid(rec.data.cpu(),nrow=8,normalize=True,range=(0,1)).numpy().transpose(1,2,0))
-        '''
         progress.close()
-    '''
-    if not dataset == 'wood' and not dataset == 'solar' and not dataset == 'benq':
-        print("saving reconstruction full image")    
-        utils.imsave(test_save_dir+'/'+dataset+'_rec_full.png', rec_img)
-        utils.imsave(test_save_dir+'/'+dataset+'_diff_full.png', diff_img)
-    '''
+
     print("saving optimized latent code")
     with open(test_save_dir+'/'+test_data+'_test_latent_code.csv', 'w') as f:
         np.savetxt(f, Z, delimiter=' ')
@@ -489,13 +422,6 @@ def train(
             batch_size=batch_size, img_size=128, convert='L')
         val_loader = utils.load(
             data_dir='../data/DAGM_10/ok',
-            batch_size=8*8, img_size=128, convert='L')
-    elif dataset == 'DAGM_8':
-        train_loader = utils.load(
-            data_dir='../data/DAGM_8/ok',
-            batch_size=batch_size, img_size=128, convert='L')
-        val_loader = utils.load(
-            data_dir='../data/DAGM_8/ok',
             batch_size=8*8, img_size=128, convert='L')
     elif dataset == 'flower_chip':
         train_loader = utils.load_multi(data_dir='../data/flower_chip/OK/train', batch_size=batch_size)
@@ -629,4 +555,3 @@ def train(
         np.savetxt(f, Z, delimiter=' ')
         
     print(colors.BLUE+"training finish!"+colors.ENDL)
-
