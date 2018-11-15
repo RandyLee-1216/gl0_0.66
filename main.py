@@ -1,21 +1,18 @@
-from PIL import Image
-import os, sys
-import argparse, glob, time
+import argparse
 import utils
+from utils import colors
 import glo
 from glo import interpolation, test, train
-from tkinter import *
-from utils import colors
 
 
-## ----------------------For Using GLO------------------------ ##
+## -----------------------Setting GLO------------------------- ##
 def parse_args():
     desc = "Main of Generative Latent Optimization"
     parser = argparse.ArgumentParser(description=desc)
-    parser.add_argument('-dataset',  type=str, default='solar', help='The name of dataset', required=True)
-    parser.add_argument('-test_data',type=str, help='Data in test stage')
-    parser.add_argument('-date',     type=str, help='Date of this experiment', required=True)
     parser.add_argument('-s',        type=str, help='Which stage?', required=True)
+    parser.add_argument('-date',     type=str, help='Date of this experiment', required=True)
+    parser.add_argument('-test_data',type=str, help='Data in test stage')
+    parser.add_argument('-dataset',  type=str, default='solar', help='The name of dataset', required=True)
     parser.add_argument('-p',        type=str, default='glo', help='Prefix of saved image')
     parser.add_argument('-dim',      type=int, default=100, help='Dimension of latent code')
     parser.add_argument('-e',        type=int, default=25, help='Nums of training epochs', required=True)
@@ -27,23 +24,34 @@ def parse_args():
     parser.add_argument('-l',        type=str, default='lap_l1', choices=['lap_l1','l2'], help='Loss type')
     return parser.parse_args()
 
-#-------------------------------------------------------------------------------
+## --------------------Input the Setting---------------------- ##
 if __name__ == "__main__":
     args = parse_args()
     if args is None:
         exit()
 
+    # read the input
+    date                = args.date
+    test_data           = args.test_date
+    dataset             = args.dataset
+    image_output_prefix = args.p
+    code_dim            = args.dim
+    epochs              = args.e
+    use_cuda            = args.gpu
+    batch_size          = args.b
+    lr_g                = args.lrg
+    lr_z                = args.lrz
+    init                = args.i
+    loss                = args.l
+    
     # start training or testing
     if args.s == 'test':
         if args.test_data is None:
             raise Exception(colors.FAIL+"Must provide a data for test stage!!"+colors.ENDL)
-        test(date=args.date, test_data=args.test_data, dataset=args.dataset, image_output_prefix=args.p, code_dim=args.dim, epochs=args.e,
-            use_cuda=args.gpu, batch_size=args.b, lr_g=args.lrg, lr_z=args.lrz, init=args.i, loss=args.l)
+        test(date,test_data,dataset, image_output_prefix, code_dim, epochs, use_cuda, batch_size, lr_g, lr_z, init, loss)
     elif args.s == 'ip':
-        interpolation(date=args.date, dataset=args.dataset, image_output_prefix=args.p, code_dim=args.dim, epochs=args.e,
-                      use_cuda=args.gpu, batch_size=args.b)
+        interpolation(date, dataset, image_output_prefix, code_dim, epochs, use_cuda, batch_size)
     elif args.s == 'train':
-        train(date=args.date, dataset=args.dataset, image_output_prefix=args.p, code_dim=args.dim, epochs=args.e,
-            use_cuda=args.gpu, batch_size=args.b, lr_g=args.lrg, lr_z=args.lrz, init=args.i, loss=args.l)
+        train(        date, dataset, image_output_prefix, code_dim, epochs, use_cuda, batch_size, lr_g, lr_z, init, loss)
     else:
         raise Exception(colors.FAIL+"No such stage!!"+colors.ENDL)
