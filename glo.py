@@ -97,11 +97,11 @@ class Generator(nn.Module):
         self.dcnn = nn.Sequential(
             nn.ConvTranspose2d(code_dim, nf * 8, 4, 1, 0, bias=False), # 1x1 -> 4X4
             nn.BatchNorm2d(nf * 8), nn.ReLU(True),
-            nn.ConvTranspose2d(nf * 8, nf * 4, 4, 2, 1, bias=False), # 4x4 -> 8X8
+            nn.ConvTranspose2d(nf * 8, nf * 4, 4, 2, 1, bias=False),   # 4x4 -> 8X8
             nn.BatchNorm2d(nf * 4), nn.ReLU(True),
-            nn.ConvTranspose2d(nf * 4, nf * 2, 4, 2, 1, bias=False), # 8x8 -> 16X16
+            nn.ConvTranspose2d(nf * 4, nf * 2, 4, 2, 1, bias=False),   # 8x8 -> 16X16
             nn.BatchNorm2d(nf * 2), nn.ReLU(True),
-            nn.ConvTranspose2d(nf * 2, nf    , 4, 2, 1, bias=False), # 16x16 -> 32X32
+            nn.ConvTranspose2d(nf * 2, nf    , 4, 2, 1, bias=False),   # 16x16 -> 32X32
             nn.BatchNorm2d(nf), nn.ReLU(True),
             nn.ConvTranspose2d(nf, out_channels, 4, 2, 1, bias=False), # 32x32 -> 64X64 # original
             #nn.ConvTranspose2d(nf, nf // 2, 4, 2, 1, bias=False), # 32X32 -> 64X64 # change filter number
@@ -124,11 +124,11 @@ class Generator_128(nn.Module):
         self.dcnn = nn.Sequential(
             nn.ConvTranspose2d(code_dim, nf * 8, 4, 1, 0, bias=False), # 1X1 -> 4X4
             nn.BatchNorm2d(nf * 8), nn.ReLU(True),
-            nn.ConvTranspose2d(nf * 8, nf * 4, 4, 2, 1, bias=False), # 4x4 -> 8X8
+            nn.ConvTranspose2d(nf * 8, nf * 4, 4, 2, 1, bias=False),   # 4x4 -> 8X8
             nn.BatchNorm2d(nf * 4), nn.ReLU(True),
-            nn.ConvTranspose2d(nf * 4, nf * 2, 4, 2, 1, bias=False), # 8x8 -> 16X16
+            nn.ConvTranspose2d(nf * 4, nf * 2, 4, 2, 1, bias=False),   # 8x8 -> 16X16
             nn.BatchNorm2d(nf * 2), nn.ReLU(True),
-            nn.ConvTranspose2d(nf * 2, nf    , 4, 2, 1, bias=False), # 16x16 -> 32X32
+            nn.ConvTranspose2d(nf * 2, nf    , 4, 2, 1, bias=False),   # 16x16 -> 32X32
             nn.BatchNorm2d(nf), nn.ReLU(True),
             #nn.ConvTranspose2d(nf, out_channels, 4, 2, 1, bias=False), # 32x32 -> 64X64 # original
             nn.ConvTranspose2d(nf, nf // 2, 4, 2, 1, bias=False), # 32X32 -> 64X64 # change filter number
@@ -151,11 +151,11 @@ class Generator_150(nn.Module):
         self.dcnn = nn.Sequential(
             nn.ConvTranspose2d(code_dim, nf * 8, 4, 1, 0, bias=False), # 1X1 -> 4X4
             nn.BatchNorm2d(nf * 8), nn.ReLU(True),
-            nn.ConvTranspose2d(nf * 8, nf * 4, 4, 2, 1, bias=False), # 4x4 -> 8X8
+            nn.ConvTranspose2d(nf * 8, nf * 4, 4, 2, 1, bias=False),   # 4x4 -> 8X8
             nn.BatchNorm2d(nf * 4), nn.ReLU(True),
-            nn.ConvTranspose2d(nf * 4, nf * 2, 4, 2, 1, bias=False), # 8x8 -> 16X16
+            nn.ConvTranspose2d(nf * 4, nf * 2, 4, 2, 1, bias=False),   # 8x8 -> 16X16
             nn.BatchNorm2d(nf * 2), nn.ReLU(True),
-            nn.ConvTranspose2d(nf * 2, nf    , 8, 2, 1, bias=False), # 16x16 -> 36X36
+            nn.ConvTranspose2d(nf * 2, nf    , 8, 2, 1, bias=False),   # 16x16 -> 36X36
             nn.BatchNorm2d(nf), nn.ReLU(True),
             #nn.ConvTranspose2d(nf, out_channels, 4, 2, 1, bias=False), # 32x32 -> 64X64 # original
             nn.ConvTranspose2d(nf, nf // 2, 4, 2, 0, bias=False), # 36X36 -> 74X74 # change filter number
@@ -246,25 +246,17 @@ def test(
     print(colors.BLUE+"[*] start testing"+colors.ENDL)
     
     if test_data == 'solar':
-        test_loader = utils.load(
-            data_dir='../data/solar/test', 
-            batch_size=batch_size, img_size=64)
+        test_loader = utils.load(data_dir='../data/solar/test', batch_size=batch_size, img_size=64)
     elif test_data == 'gas_leak_dirt':
-        test_loader, num_h, num_v = utils.load_full_chip(
-            data_dir='../data/gas_leak_dirt/full_chip',
+        test_loader, num_h, num_v = utils.load_full_chip(data_dir='../data/gas_leak_dirt/full_chip',
             dataname=dataset, batch_size=batch_size, img_size=64)
     elif test_data == 'flower_chip':
-        test_loader = num_h, num_v = utils.load_full_chip(
-            data_dir='../data/flower_chip/OK/full_chip',
+        test_loader = num_h, num_v = utils.load_full_chip(data_dir='../data/flower_chip/OK/full_chip',
             dataname=dataset, batch_size=batch_size, img_size=512)
     elif test_data == 'wood':
-        test_loader = utils.load(
-            data_dir='../data/wood/ok', 
-            batch_size=batch_size, img_size=64, convert='L')
+        test_loader = utils.load(data_dir='../data/wood/ok', batch_size=batch_size, img_size=64, convert='L')
     elif dataset == 'lens':
-        test_loader = utils.load(
-            #data_dir='../contact_lens/line/cut/ng',
-            data_dir='../contact_lens/line/cut/ng2',
+        test_loader = utils.load(data_dir='../contact_lens/line/cut/ng2',
             batch_size=batch_size, img_size=128, convert='L')
     else:
         raise Exception(colors.FAIL+"No such dataset!!"+colors.ENDL)
@@ -403,57 +395,33 @@ def train(
 
     # load datasets for training and validation set
     if dataset == 'solar':
-        train_loader = utils.load(
-            data_dir='../data/solar/train',
-            batch_size=batch_size)
-        val_loader = utils.load(
-            data_dir='../data/solar/train',
-            batch_size=8*8)
+        train_loader = utils.load(data_dir='../data/solar/train', batch_size=batch_size)
+        val_loader = utils.load(data_dir='../data/solar/train', batch_size=8*8)
     elif dataset == 'wood':
-        train_loader = utils.load(
-            data_dir='../data/wood/ok', 
-            batch_size=batch_size, convert='L')
-        val_loader = utils.load(
-            data_dir='../data/wood/ok',
-            batch_size=8*8, convert='L')
+        train_loader = utils.load(data_dir='../data/wood/ok', batch_size=batch_size, convert='L')
+        val_loader = utils.load(data_dir='../data/wood/ok', batch_size=8*8, convert='L')
     elif dataset == 'DAGM_10':
-        train_loader = utils.load(
-            data_dir='../data/DAGM_10/ok',
+        train_loader = utils.load(data_dir='../data/DAGM_10/ok',
             batch_size=batch_size, img_size=128, convert='L')
-        val_loader = utils.load(
-            data_dir='../data/DAGM_10/ok',
+        val_loader = utils.load(data_dir='../data/DAGM_10/ok',
             batch_size=8*8, img_size=128, convert='L')
     elif dataset == 'flower_chip':
         train_loader = utils.load_multi(data_dir='../data/flower_chip/OK/train', batch_size=batch_size)
         val_loader = utils.load_multi(data_dir='../data/flower_chip/OK/train', batch_size=8*8)
     elif dataset == 'benq':
-        train_loader = utils.load(
-            data_dir='/home/itri/kevin/data/benq',
+        train_loader = utils.load(data_dir='/home/itri/kevin/data/benq',
             batch_size=batch_size, img_size=128, convert='L')
-        val_loader = utils.load(
-            data_dir='/home/itri/kevin/data/benq',
+        val_loader = utils.load(data_dir='/home/itri/kevin/data/benq',
             batch_size=8*8, img_size=128, convert='L')
     elif dataset == 'wood_mixed':
-        train_loader = utils.load(
-            data_dir='../data/wood/mixed',
-            batch_size=batch_size, convert='L')
-        val_loader = utils.load(
-            data_dir='../data/wood/mixed',
-            batch_size=8*8, convert='L')
+        train_loader = utils.load(data_dir='../data/wood/mixed', batch_size=batch_size, convert='L')
+        val_loader = utils.load(data_dir='../data/wood/mixed', batch_size=8*8, convert='L')
     elif dataset == 'dark':
-        train_loader = utils.load(
-            data_dir='../0713/0713/OK_eqal',
-            batch_size=batch_size, img_size=150, convert='L')
-        val_loader = utils.load(
-            data_dir='../0713/0713/OK_eqal',
-            batch_size=8*8, img_size=150, convert='L')
+        train_loader = utils.load(data_dir='../0713/0713/OK_eqal', batch_size=batch_size, img_size=150, convert='L')
+        val_loader   = utils.load(data_dir='../0713/0713/OK_eqal', batch_size=8*8, img_size=150, convert='L')
     elif dataset == 'lens':
-        train_loader = utils.load(
-            data_dir='../contact_lens/line/cut/ok',
-            batch_size=batch_size, img_size=128, convert='L')
-        val_loader = utils.load(
-            data_dir='../contact_lens/line/cut/ok',
-            batch_size=8*8, img_size=128, convert='L')
+        train_loader = utils.load(data_dir='../contact_lens/line/cut/ok',batch_size=batch_size, img_size=128, convert='L')
+        val_loader   = utils.load(data_dir='../contact_lens/line/cut/ok',batch_size=8*8, img_size=128, convert='L')
     else:
         raise Exception("No such dataset!!")
 
