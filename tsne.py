@@ -1,23 +1,14 @@
 from __future__ import division, print_function
+# from sklearn.manifold import TSNE
 import sklearn
-from sklearn.manifold import TSNE
-from sklearn.datasets import load_iris, load_digits
-from sklearn.decomposition import PCA
-from sklearn.datasets.base import Bunch
+import scipy, scipy.misc
 from scipy.misc import imread, imresize
 from scipy import linalg
-from numpy.linalg import matrix_rank
-import scipy, scipy.misc
 import pandas as pd
-import numpy as np
-import scipy as sp
 import math, csv, argparse
 import os, glob, cv2
-import datetime, time
 import matplotlib as mpl
 mpl.use('Agg')
-import matplotlib.pyplot as plt
-import matplotlib.mlab as mlab
 from PIL import Image
 
 def read_csv(args):
@@ -181,4 +172,3 @@ if __name__=="__main__":
         exit()
     
     main()
-        
