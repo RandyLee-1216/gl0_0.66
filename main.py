@@ -32,7 +32,6 @@ if __name__ == "__main__":
 
     # read the input
     date                = args.date
-    test_data           = args.test_date
     dataset             = args.dataset
     image_output_prefix = args.p
     code_dim            = args.dim
@@ -46,6 +45,7 @@ if __name__ == "__main__":
     
     # start training or testing
     if args.s == 'test':
+        test_data           = args.test_date
         if args.test_data is None:
             raise Exception(colors.FAIL+"Must provide a data for test stage!!"+colors.ENDL)
         test(date,test_data,dataset, image_output_prefix, code_dim, epochs, use_cuda, batch_size, lr_g, lr_z, init, loss)
