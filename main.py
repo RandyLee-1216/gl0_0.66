@@ -1,4 +1,4 @@
-import argparse
+import argparse, torch
 import utils
 from utils import colors
 import glo
@@ -22,6 +22,7 @@ def parse_args():
     parser.add_argument('-lrz',      type=float, default=10., help='Learning rate for representation space')
     parser.add_argument('-i',        type=str, default='pca', choices=['pca','random'], help='Init strategy for representation vectors')
     parser.add_argument('-l',        type=str, default='lap_l1', choices=['lap_l1','l2'], help='Loss type')
+    parser.add_argument('-gpu_num',  type=int,  default=0,      help='which gpu?')
     return parser.parse_args()
 
 ## --------------------Input the Setting---------------------- ##
@@ -42,7 +43,7 @@ if __name__ == "__main__":
     lr_z                = args.lrz
     init                = args.i
     loss                = args.l
-    
+    torch.cuda.set_device(args.gpu_num)
     # start training or testing
     if args.s == 'test':
         test_data           = args.test_date
