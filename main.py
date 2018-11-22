@@ -43,7 +43,10 @@ if __name__ == "__main__":
     lr_z                = args.lrz
     init                = args.i
     loss                = args.l
-    torch.cuda.set_device(args.gpu_num)
+    
+    # when want to use a specific GPU
+    if args.gpu_num != 0:    
+        torch.cuda.set_device(args.gpu_num)
     # start training or testing
     if args.s == 'test':
         test_data           = args.test_date
