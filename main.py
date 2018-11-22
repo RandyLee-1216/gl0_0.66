@@ -54,8 +54,6 @@ if __name__ == "__main__":
         if args.test_data is None:
             raise Exception(colors.FAIL+"Must provide a data for test stage!!"+colors.ENDL)
         test(date,test_data,dataset, image_output_prefix, code_dim, epochs, use_cuda, batch_size, lr_g, lr_z, init, loss)
-    elif args.s == 'ip':
-        interpolation(date, dataset, image_output_prefix, code_dim, epochs, use_cuda, batch_size)
     elif args.s == 'train':
         train(        date, dataset, image_output_prefix, code_dim, epochs, use_cuda, batch_size, lr_g, lr_z, init, loss)
     else:
