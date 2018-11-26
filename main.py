@@ -1,4 +1,4 @@
-import argparse
+import argparse, torch
 import glo
 from glo import test, train
 import utils
@@ -21,6 +21,7 @@ def parse_args():
     parser.add_argument('-lrz',      type=float,default=.1)
     parser.add_argument('-i',        type=str,  default='pca')
     parser.add_argument('-l',        type=str,  default='lap_l1', choices=['lap_l1','l2'])
+    parser.add_argument('-gpu_num',  type=int,  default=0)
     return parser.parse_args()
 
 #-------------------------------------------------------------------------------
@@ -28,7 +29,11 @@ if __name__ == "__main__":
     args = parse_args()
     if args is None:
         exit()
-
+    
+    # assign the gpu if specify one
+    if args.gpu_num != 0:
+        torch.cuda.set_device(args.gpu_num)
+    
     # start training or testing
     if args.s == 'test':
         if args.test_data is None:
