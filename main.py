@@ -1,60 +1,42 @@
-import argparse, torch
+import argparse
+import glo
+from glo import test, train
 import utils
 from utils import colors
-import glo
-from glo import interpolation, test, train
 
-
-## -----------------------Setting GLO------------------------- ##
+#-------------------------------------------------------------------------------
 def parse_args():
-    desc = "Main of Generative Latent Optimization"
+    desc = "Main of Global Latent Optimization"
     parser = argparse.ArgumentParser(description=desc)
-    parser.add_argument('-s',        type=str,                  help='Which stage?', required=True)
-    parser.add_argument('-date',     type=str,                  help='Date of this experiment', required=True)
-    parser.add_argument('-test_data',type=str,                  help='Data in test stage')
-    parser.add_argument('-dataset',  type=str,  default='solar',help='The name of dataset', required=True)
-    parser.add_argument('-p',        type=str,  default='glo',  help='Prefix of saved image')
-    parser.add_argument('-dim',      type=int,  default=100,    help='Dimension of latent code')
-    parser.add_argument('-e',        type=int,  default=25,     help='Nums of training epochs', required=True)
-    parser.add_argument('-gpu',      type=bool, default=True,   help='Use gpu?')
-    parser.add_argument('-b',        type=int,  default=128,    help='Batch size')
-    parser.add_argument('-lrg',      type=float,default=.1,     help='Learning rate of generator')
-    parser.add_argument('-lrz',      type=float,default=.1,     help='Learning rate for representation space')
-    parser.add_argument('-i',        type=str,  default='pca',  help='Init strategy for representation vectors', choices=['pca','random'])
-    parser.add_argument('-l',        type=str,  default='lap_l1',help='Loss type', choices=['lap_l1','l2'])
-    parser.add_argument('-gpu_num',  type=int,  default=0,      help='which gpu?')
+    parser.add_argument('-dataset',  type=str,  required=True)
+    parser.add_argument('-test_data',type=str)
+    parser.add_argument('-date',     type=str,  required=True)
+    parser.add_argument('-s',        type=str,  required=True)
+    parser.add_argument('-p',        type=str,  default='glo')
+    parser.add_argument('-dim',      type=int,  default=100)
+    parser.add_argument('-e',        type=int,  required=True)
+    parser.add_argument('-gpu',      type=bool, default=True)
+    parser.add_argument('-b',        type=int,  default=128)
+    parser.add_argument('-lrg',      type=float,default=.1)
+    parser.add_argument('-lrz',      type=float,default=.1)
+    parser.add_argument('-i',        type=str,  default='pca')
+    parser.add_argument('-l',        type=str,  default='lap_l1', choices=['lap_l1','l2'])
     return parser.parse_args()
 
-## --------------------Input the Setting---------------------- ##
+#-------------------------------------------------------------------------------
 if __name__ == "__main__":
     args = parse_args()
     if args is None:
         exit()
 
-    # read the input
-    date                = args.date
-    dataset             = args.dataset
-    image_output_prefix = args.p
-    code_dim            = args.dim
-    epochs              = args.e
-    use_cuda            = args.gpu
-    batch_size          = args.b
-    lr_g                = args.lrg
-    lr_z                = args.lrz
-    init                = args.i
-    loss                = args.l
-    
-    # when want to use a specific GPU
-    if args.gpu_num != 0:    
-        torch.cuda.set_device(args.gpu_num)
-    
     # start training or testing
     if args.s == 'test':
-        test_data           = args.test_date
         if args.test_data is None:
             raise Exception(colors.FAIL+"Must provide a data for test stage!!"+colors.ENDL)
-        test(date,test_data,dataset, image_output_prefix, code_dim, epochs, use_cuda, batch_size, lr_g, lr_z, init, loss)
+        test(date=args.date, test_data=args.test_data, dataset=args.dataset, image_output_prefix=args.p, code_dim=args.dim, epochs=args.e,
+            use_cuda=args.gpu, batch_size=args.b, lr_g=args.lrg, lr_z=args.lrz, init=args.i, loss=args.l)
     elif args.s == 'train':
-        train(        date, dataset, image_output_prefix, code_dim, epochs, use_cuda, batch_size, lr_g, lr_z, init, loss)
+        train(date=args.date, dataset=args.dataset, image_output_prefix=args.p, code_dim=args.dim, epochs=args.e,
+            use_cuda=args.gpu, batch_size=args.b, lr_g=args.lrg, lr_z=args.lrz, init=args.i, loss=args.l)
     else:
         raise Exception(colors.FAIL+"No such stage!!"+colors.ENDL)
