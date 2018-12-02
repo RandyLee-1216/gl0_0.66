@@ -1,11 +1,7 @@
-from scipy import linalg
-from numpy.linalg import matrix_rank
-import scipy, scipy.misc
 import pandas as pd
 import numpy as np
-import scipy as sp
-import math, csv, argparse
-import os, glob, cv2, time
+import csv, argparse
+import os, glob
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
