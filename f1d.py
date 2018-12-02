@@ -1,7 +1,5 @@
 from __future__ import division, print_function
 import sklearn
-from sklearn.manifold import TSNE
-from sklearn.datasets import load_iris, load_digits
 from sklearn.decomposition import PCA
 from sklearn.datasets.base import Bunch
 from scipy.misc import imread, imresize
