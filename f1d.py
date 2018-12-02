@@ -1,11 +1,9 @@
 import pandas as pd
 import numpy as np
-import csv, argparse
+import argparse
 import os, glob
 import matplotlib as mpl
 mpl.use('Agg')
-import matplotlib.pyplot as plt
-from PIL import Image
 
 class Base(object):
     def __init__(self, args):
