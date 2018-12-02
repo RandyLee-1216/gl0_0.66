@@ -1,8 +1,3 @@
-from __future__ import division, print_function
-import sklearn
-from sklearn.decomposition import PCA
-from sklearn.datasets.base import Bunch
-from scipy.misc import imread, imresize
 from scipy import linalg
 from numpy.linalg import matrix_rank
 import scipy, scipy.misc
