@@ -21,14 +21,13 @@ class FIDPREDICTSINGLE(Base):
         super(FIDPREDICTSINGLE, self).__init__(args)
         #self.train_
 
-    def loadData(self):
+    def run(self):
         print("--loading data")
 
         # read train latent codes from csv
         train_csv = glob.glob(self.train_dir+'/*.csv')
         print(train_csv)
-        df_train = pd.read_csv(train_csv[0],
-            header=None, delimiter=' ')
+        df_train = pd.read_csv(train_csv[0], header=None, delimiter=' ')
         # because the number are so many, we sample it
         self.train_latent = df_train.values
 
@@ -37,20 +36,13 @@ class FIDPREDICTSINGLE(Base):
         else:
             test_csv = glob.glob(self.test_dir+'/'+self.test_data+'*csv')
         print(test_csv)
-        df_test = pd.read_csv(test_csv[0],
-            header=None, delimiter=' ')
+        df_test = pd.read_csv(test_csv[0], header=None, delimiter=' ')
         self.test_latent = df_test.values
 
-    def computeStatistics(self):
         self.train_mu = np.mean(self.train_latent, axis=1)
         self.train_sigma = np.var(self.train_latent, axis=1)
-
-        self.test_mu = np.mean(self.test_latent, axis=1)
-        self.test_sigma = np.var(self.test_latent, axis=1)
-
-    def run(self):
-        self.loadData()
-        self.computeStatistics()
+        self.test_mu  = np.mean(self.test_latent,  axis=1)
+        self.test_sigma  = np.var(self.test_latent, axis=1)
 
         self.mu = np.mean(self.train_mu)
         count = 0
