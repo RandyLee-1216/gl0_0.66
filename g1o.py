@@ -509,7 +509,8 @@ def train(
         rec = g(Variable(maybe_cuda(torch.FloatTensor(Z[idx_val.numpy()]))))
         utils.imsave(save_dir+'/%s_rec_epoch_%03d.png' % (image_output_prefix, epoch+1), 
                make_grid(rec.data.cpu(),nrow=8,normalize=True,range=(0,1)).numpy().transpose(1,2,0))
-        print("avg epoch time", time.time() - epoch_start_time)
+        tt=time.time() - epoch_start_time
+        print("avg epoch time : %.4f" % tt)
     
     utils.loss_plot(overall_loss, save_dir+'/train_loss.png')
     print("save loss plot")
