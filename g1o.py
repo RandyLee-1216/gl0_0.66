@@ -42,7 +42,7 @@ def conv_gauss(img, kernel):
     return F.conv2d(img, kernel, groups=n_channels)
 
 #-------------------------------------------------------------------------------
-def laplacian_pyramid(img, kernel, max_levels=5):
+def laplacian_pyramid(img, kernel, max_levels=7):
     current = img
     pyr = []
 
@@ -146,6 +146,12 @@ def test(
     elif test_data == 'IC':
         test_loader = utils.load(data_dir='../data/IC/ng',
             batch_size=batch_size, img_size=128, convert='L')
+    elif test_data == 'glue':
+        test_loader = utils.load(data_dir='../data/glue/ng',
+            batch_size=batch_size, img_size=128, convert='L')
+    elif test_data == 'dark':
+        test_loader = utils.load(data_dir='/home/itri/ddataa/LHE_dark/train/NG',
+            batch_size=batch_size, img_size=128, convert='L')
     else:
         raise Exception(colors.FAIL+"No such dataset!!"+colors.ENDL)
 
@@ -236,7 +242,6 @@ def test(
     print(colors.BLUE+"[*] test stage finish!"+colors.ENDL)
 
 #-------------------------------------------------------------------------------
-
 def train(
         date,
         dataset='DAGM_8',
@@ -273,6 +278,16 @@ def train(
         train_loader = utils.load(data_dir='../data/IC/ok',
             batch_size=batch_size, img_size=128, convert='L')
         val_loader = utils.load(  data_dir='../data/IC/ok',
+            batch_size=8*8, img_size=128, convert='L')
+    elif dataset == 'glue':
+        train_loader = utils.load(data_dir='../data/glue/ok',
+            batch_size=batch_size, img_size=128, convert='L')
+        val_loader = utils.load(  data_dir='../data/glue/ok',
+            batch_size=8*8, img_size=128, convert='L')
+    elif dataset == 'dark':
+        train_loader = utils.load(data_dir='/home/itri/ddataa/LHE_dark/train/OK',
+            batch_size=batch_size, img_size=128, convert='L')
+        val_loader = utils.load(  data_dir='/home/itri/ddataa/LHE_dark/train/OK',
             batch_size=8*8, img_size=128, convert='L')
     else:
         raise Exception("No such dataset!!")
@@ -358,7 +373,7 @@ def train(
         ep_t = time.time() - epoch_start_time
         print("avg epoch time=%.3f" % ep_t)
 
-        if (epoch+1)%10==0:
+        if (epoch+1)%100==0:
             utils.imsave(save_dir+'/%s_rec_epoch_%04d.png' % (image_output_prefix, epoch+1), 
                make_grid(rec.data.cpu(),nrow=8,normalize=True,range=(0,1)).numpy().transpose(1,2,0))
     
