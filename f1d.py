@@ -8,52 +8,16 @@ mpl.use('Agg')
 
 class Base(object):
     def __init__(self, args):
-        self.dataset = args.dataset
-        self.date = args.date
+        self.dataset   = args.dataset
+        self.date      = args.date
         self.test_data = args.test_data
         self.train_dir = os.path.join('results', self.dataset, self.date)
-        self.test_dir = os.path.join(self.train_dir, 'test')
-        fid_stats_dir = './fid_stats'
+        self.test_dir  = os.path.join(self.train_dir, 'test')
+        fid_stats_dir  = './fid_stats'
         if not os.path.exists(fid_stats_dir):
             os.makedirs(fid_stats_dir)
 
-class FIDPREDICTSINGLE(Base):
-    def __init__(self, args):
-        super(FIDPREDICTSINGLE, self).__init__(args)
-        #self.train_
-
-    def run(self):
-        print("--loading data")
-
-        # read train latent codes from csv
-        train_csv = glob.glob(self.train_dir+'/*.csv')
-        print(train_csv)
-        df_train = pd.read_csv(train_csv[0], header=None, delimiter=' ')
-        # because the number are so many, we sample it
-        self.train_latent = df_train.values
-
-        if self.test_data == self.dataset:
-            test_csv = glob.glob(self.train_dir+'/*.csv')
-        else:
-            test_csv = glob.glob(self.test_dir+'/'+self.test_data+'*csv')
-        print(test_csv)
-        df_test = pd.read_csv(test_csv[0], header=None, delimiter=' ')
-        self.test_latent = df_test.values
-
-        self.train_mu = np.mean(self.train_latent, axis=1)
-        self.train_sigma = np.var(self.train_latent, axis=1)
-        self.test_mu  = np.mean(self.test_latent,  axis=1)
-        self.test_sigma  = np.var(self.test_latent, axis=1)
-
-        self.mu = np.mean(self.train_mu)
-        count = 0
-        for i in range(len(self.test_mu)):
-            diff = self.test_mu[i] - self.mu   
-            value = diff**2 + self.test_sigma[i]
-            print(value)
-            if value > 0.00998:
-                count += 1
-        print("There are %d defective images out of %d samples." %(count, len(self.test_mu))) 
+###########################################################################################            
 
 class FIDSEP(Base):
     def __init__(self, args):
@@ -295,13 +259,59 @@ class FID(Base):
         elapsed_time = time.time() - start_time
         print("FID value is %s, consuming %s s" %(fid_value,elapsed_time))
         return fid_value
+    
+##########################################################################
+class FIDPREDICTSINGLE(Base):
+    def __init__(self, args):
+        super(FIDPREDICTSINGLE, self).__init__(args)
+        #self.train_
 
+    def run(self):
+        print("==================loading data====================")
+
+        # read train latent codes from csv
+        train_csv = glob.glob(self.train_dir+'/*.csv')
+        print(train_csv)
+        df_train = pd.read_csv(train_csv[0], header=None, delimiter=' ')
+        # because the number are so many, we sample it
+        self.train_latent = df_train.values
+
+        if self.test_data == self.dataset:
+            test_csv = glob.glob(self.train_dir+'/*.csv')
+        else:
+            test_csv = glob.glob(self.test_dir+'/'+self.test_data+'*csv')
+        print(test_csv)
+        df_test = pd.read_csv(test_csv[0], header=None, delimiter=' ')
+        self.test_latent = df_test.values
+        
+        self.train_mu    = np.mean(self.train_latent, axis=1)
+        self.train_sigma = np.var(self.train_latent, axis=1)
+        self.test_mu     = np.mean(self.test_latent,  axis=1)
+        self.test_sigma  = np.var(self.test_latent,  axis=1)
+
+        self.mu = np.mean(self.train_mu)
+        count = 0
+        for i in range(len(self.test_mu)):
+            diff = self.test_mu[i] - self.mu   
+            value = diff**2 + self.test_sigma[i]
+            if value > 0.009991:
+                count += 1
+                print(value)
+
+        print("=============================")
+        if self.test_data == self.dataset:
+            print("OK:%6d || overkill:%6d." %((len(self.test_mu)-count), count))
+        else:
+            print("NG:%6d || leakage :%6d." %(count, (len(self.test_mu)-count)))
+        print("=============================")
+
+##########################################################################
 def parse_args():
     desc = "FID"
     parser = argparse.ArgumentParser(description=desc)
-    parser.add_argument('-dataset', type=str, default='solar', help='The name of dataset', required=True)
-    parser.add_argument('-date', type=str, help='Date of this experiment', required=True)
-    parser.add_argument('-test_data', type=str, help='Test which?')
+    parser.add_argument('-dataset',  type=str, required=True)
+    parser.add_argument('-date',     type=str, required=True)
+    parser.add_argument('-test_data',type=str)
     return parser.parse_args()
 
 if __name__=="__main__":
