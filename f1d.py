@@ -3,6 +3,7 @@ from scipy import linalg
 import pandas as pd
 import numpy as np
 import argparse, os, glob, time
+from os import listdir
 import matplotlib as mpl
 mpl.use('Agg')
 
@@ -51,8 +52,9 @@ class FID(Base):
 
         self.mu = np.mean(self.train_mu)
         count_value_ok = 0
-        count_value_ng = 0
-        fid_value = 2
+        fid_value = 30
+
+        ok_dir = os.listdir(os.path.join('../data', self.dataset, 'ok'))
         
         for i in range(len(self.test_ng_mu)):
             diff_fid = self.test_ng_mu[i] - self.mu
@@ -61,17 +63,19 @@ class FID(Base):
                 fid_value = value_fid
         print('FID value : %f' % fid_value)
         
-        for k in range(len(self.test_ok_mu)):
-            diff_ok = self.test_ok_mu[k] - self.mu
-            value_ok = diff_ok**2 + self.test_ok_sigma[k]
+        print('========List of Overkill==========')
+
+        for j in range(len(self.test_ok_mu)):
+            diff_ok = self.test_ok_mu[j] - self.mu
+            value_ok = diff_ok**2 + self.test_ok_sigma[j]
             if value_ok > fid_value:
                 count_value_ok += 1
-                print('Overkill value : %f' % value_ok)
+                print(ok_dir[j])
 
         print("+---------------+----------------+")
         print("|OK:     %6d | overkill:%6d|" %((len(self.test_ok_mu)-count_value_ok), count_value_ok))
         print("|---------------+----------------|")
-        print("|leakage:%6d | NG:      %6d|" %(count_value_ng, (len(self.test_ng_mu)-count_value_ng)))
+        print("|leakage:%6d | NG:      %6d|" %(0, len(self.test_ng_mu)))
         print("+---------------+----------------+")
 
 ##########################################################################
