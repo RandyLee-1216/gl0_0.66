@@ -1,7 +1,12 @@
-from tqdm import tqdm
+import os, glob, time, random
+import matplotlib as mpl
+mpl.use('Agg')
 import numpy as np
 import pandas as pd
 from PIL import Image
+import scipy
+from scipy import linalg
+from tqdm import tqdm
 import torch, glob
 from torch import nn
 import torch.nn.functional as F
@@ -9,8 +14,7 @@ from torch.autograd import Variable
 from torch.optim import SGD, Adam
 from torch.utils.data import Dataset
 from torchvision.utils import make_grid
-import os, glob, time
-import utils, random
+import utils
 from utils import colors
 #-------------------------------------------------------------------------------
 use_cuda = True
@@ -119,6 +123,252 @@ class Generator_128(nn.Module):
         return self.dcnn(code.view(code.size(0), self.code_dim, 1, 1))
 
 #-------------------------------------------------------------------------------
+def train(
+        date,
+        dataset='DAGM_8',
+        image_output_prefix='glo',
+        code_dim=100,
+        epochs=25,
+        use_cuda=True,
+        batch_size=128,
+        lr_g=.1,
+        lr_z=.1,
+        max_num_samples=100000,
+        init='pca',
+        n_pca=(64 * 64 * 3 * 2),
+        loss='lap_l1',
+):
+    print(colors.BLUE+"================start training================"+colors.ENDL)
+    save_dir = 'results/'+dataset+'/'+date
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    # load datasets for training and validation set
+    if dataset == 'DAGM_10':
+        train_loader = utils.load(data_dir='../data/DAGM_10/ok_original',
+            batch_size=batch_size, img_size=128, convert='L')
+        val_loader = utils.load(
+            data_dir='../data/DAGM_10/ok_original',
+            batch_size=8*8, img_size=128, convert='L')
+    elif dataset == 'DAGM_8':
+        train_loader = utils.load(data_dir='../data/DAGM_8/ok',
+            batch_size=batch_size, img_size=128, convert='L')
+        val_loader = utils.load(  data_dir='../data/DAGM_8/ok',
+            batch_size=8*8, img_size=128, convert='L')
+    elif dataset == 'IC':
+        train_loader = utils.load(data_dir='../data/IC/ok',
+            batch_size=batch_size, img_size=128, convert='L')
+        val_loader = utils.load(  data_dir='../data/IC/ok',
+            batch_size=8*8, img_size=128, convert='L')
+    elif dataset == 'IC1':
+        train_loader = utils.load(data_dir='../data/IC1/ok',
+            batch_size=batch_size, img_size=128, convert='L')
+        val_loader = utils.load(  data_dir='../data/IC1/ok',
+            batch_size=8*8, img_size=128, convert='L')
+    elif dataset == 'IC2':
+        train_loader = utils.load(data_dir='../data/IC2/ok',
+            batch_size=batch_size, img_size=128, convert='L')
+        val_loader = utils.load(  data_dir='../data/IC2/ok',
+            batch_size=8*8, img_size=128, convert='L')
+    elif dataset == 'glue':
+        train_loader = utils.load(data_dir='../data/glue/ok',
+            batch_size=batch_size, img_size=128, convert='L')
+        val_loader = utils.load(  data_dir='../data/glue/ok',
+            batch_size=8*8, img_size=128, convert='L')
+    elif dataset == 'dark':
+        train_loader = utils.load(data_dir='/home/itri/ddataa/LHE_dark/train/OK',
+            batch_size=batch_size, img_size=128, convert='L')
+        val_loader = utils.load(  data_dir='/home/itri/ddataa/LHE_dark/train/OK',
+            batch_size=8*8, img_size=128, convert='L')
+    else:
+        raise Exception("No such dataset!!")
+
+    # we don't really have a validation set here, but for visualization let us 
+    # just take the first couple images from the dataset
+
+    # initialize representation space:
+    if init == 'pca':
+        from sklearn.decomposition import PCA
+
+        # first, take a subset of train set to fit the PCA
+        X_pca = np.vstack([
+            X.cpu().numpy().reshape(len(X), -1)
+            for i, (X, _, _)
+             in zip(tqdm(range(n_pca // train_loader.batch_size), 'collect data for PCA'), 
+                    train_loader)
+        ])
+        print("perform PCA...")
+        pca = PCA(n_components=code_dim)
+        pca.fit(X_pca)
+        # then, initialize latent vectors to the pca projections of the complete dataset
+        Z = np.empty((len(train_loader.dataset), code_dim))
+        print(Z.shape)
+        for X, _, idx in tqdm(train_loader, 'pca projection'):
+            idx = idx.numpy()
+            Z[idx] = pca.transform(X.cpu().numpy().reshape(len(X), -1))
+
+    elif init == 'random':
+        Z = np.random.randn(len(train_loader.dataset), code_dim)
+    
+    else:
+        raise Exception("-i : choices=[pca random]")
+
+    # project the latent vectors into a unit ball
+    Z = utils.project_l2_ball(Z)
+
+    # we use only 1 output channel
+    g = maybe_cuda(Generator_128(code_dim, out_channels=1))
+        
+    loss_fn = LapLoss(max_levels=3) if loss == 'lap_l1' else nn.MSELoss()
+    zi = maybe_cuda(torch.zeros((batch_size, code_dim)))
+    zi = Variable(zi, requires_grad=True)
+    optimizer = SGD([
+        {'params': g.parameters(), 'lr': lr_g}, 
+        {'params': zi, 'lr': lr_z}
+    ])
+
+    Xi_val, _, idx_val = next(iter(val_loader))
+
+    utils.imsave(save_dir+'/target.png',
+           make_grid(Xi_val.cpu(),nrow=8,normalize=True,range=(0,1)).numpy().transpose(1,2,0))
+
+    overall_loss = []
+    
+    # =================================================================================================
+    # =========================================First part==============================================
+    # =================================================================================================
+    epochs_d = 0.03*epochs
+    if epochs_d <= 1:
+        epochs_d = 1
+    if epochs_d >= 30:
+        epochs_d = 30
+    
+    cycle_d = 3
+    for cyc in range(cycle_d)
+        for epoch in range(epochs_d):
+            losses = []
+            progress = tqdm(total=len(train_loader)-1, desc='epoch % 5d' %(epoch+1))
+
+            for i, (Xi, yi, idx) in enumerate(train_loader):
+                if i == train_loader.dataset.__len__() // batch_size:
+                    break
+                Xi = Variable(maybe_cuda(Xi))
+                zi.data = maybe_cuda(torch.FloatTensor(Z[idx.numpy()]))
+
+                optimizer.zero_grad()
+                loss = loss_fn(g(zi), Xi)
+                loss.backward()
+                optimizer.step()
+
+                Z[idx.numpy()] = utils.project_l2_ball(zi.data.cpu().numpy())
+
+                losses.append(loss.item())
+                progress.set_postfix({'loss': np.mean(losses[-100:])})
+                progress.update()
+        
+            overall_loss.append(np.mean(losses[:]))
+            progress.close()
+
+            # visualize reconstructions
+            rec = g(Variable(maybe_cuda(torch.FloatTensor(Z[idx_val.numpy()]))))
+
+            if (epoch+1)%100==0:
+                utils.imsave(save_dir+'/%s_rec_epoch_%05d.png' % (image_output_prefix, epoch+1), 
+                   make_grid(rec.data.cpu(),nrow=8,normalize=True,range=(0,1)).numpy().transpose(1,2,0))
+        utils.loss_plot(overall_loss, save_dir+'/train_loss_'+cyc+'.png')
+        print("save loss plot # %d" % cyc)
+        
+        # Save model
+        torch.save(g.state_dict(), os.path.join(save_dir,image_output_prefix+'drop_'+str(cyc)+'.pth'))
+        print("Generator model saved")
+        pretrained_file = glob.glob(save_dir+'/*.pth')
+        g.load_state_dict(torch.load(pretrained_file[0]))
+        print("Load pre-trained weights success")
+        loss_fn = LapLoss(max_levels=3) if loss == 'lap_l1' else nn.MSELoss()
+        zi = maybe_cuda(torch.zeros((batch_size, code_dim)))
+        zi = Variable(zi, requires_grad=True)
+        optimizer = Adam([{'params': zi, 'lr': lr_z}])
+        for param in g.parameters():
+            param.requires_grad = False
+
+        for i, (Xi, yi, idx) in enumerate(test_loader):
+            if i == (test_loader.dataset.__len__() // batch_size):
+                print(len(idx))
+                break
+           
+            losses = []
+            progress = tqdm(total=epochs-1, desc='batch iter % 4d' % (i+1))
+            Xi = Variable(maybe_cuda(Xi))
+            zi.data = maybe_cuda(torch.FloatTensor(Z[idx.numpy()]))
+            epoch_start_time = time.time()
+        
+            for epoch in range(epochs):
+                optimizer.zero_grad()
+                #print(rec.size())
+                loss = loss_fn(g(zi), Xi)
+                loss.backward()
+                optimizer.step()
+                Z[idx.numpy()] = utils.project_l2_ball(zi.data.cpu().numpy())
+                losses.append(loss.item())
+                progress.set_postfix({'loss': np.mean(losses[-100:])})
+                progress.update()
+         
+            progress.close()
+
+        print("saving optimized latent code")
+        with open(test_save_dir+'/'+test_data+'_test_latent_code.csv', 'w') as f:
+            np.savetxt(f, Z, delimiter=' ')
+        print(colors.BLUE+"====================Droping Finish==================="+colors.ENDL)
+    
+    # =================================================================================================
+    # ========================================Second part==============================================
+    # =================================================================================================
+    for epoch in range(epochs-cycle_d*epochs_d):
+        losses = []
+        progress = tqdm(total=len(train_loader)-1, desc='epoch % 3d' %(epoch+1))
+
+        for i, (Xi, yi, idx) in enumerate(train_loader):
+            if i == train_loader.dataset.__len__() // batch_size:
+                break
+            Xi = Variable(maybe_cuda(Xi))
+            zi.data = maybe_cuda(torch.FloatTensor(Z[idx.numpy()]))
+
+            optimizer.zero_grad()
+            loss = loss_fn(g(zi), Xi)
+            loss.backward()
+            optimizer.step()
+
+            Z[idx.numpy()] = utils.project_l2_ball(zi.data.cpu().numpy())
+
+            losses.append(loss.item())
+            progress.set_postfix({'loss': np.mean(losses[-100:])})
+            progress.update()
+        
+        overall_loss.append(np.mean(losses[:]))
+        progress.close()
+
+        # visualize reconstructions
+        rec = g(Variable(maybe_cuda(torch.FloatTensor(Z[idx_val.numpy()]))))
+
+        if (epoch+1)%100==0:
+            utils.imsave(save_dir+'/%s_rec_epoch_%05d.png' % (image_output_prefix, epoch+1), 
+               make_grid(rec.data.cpu(),nrow=8,normalize=True,range=(0,1)).numpy().transpose(1,2,0))
+    
+    
+    utils.loss_plot(overall_loss, save_dir+'/train_loss.png')
+    print("Loss plot saved")
+
+    # save generator model
+    torch.save(g.state_dict(), os.path.join(save_dir,image_output_prefix+'_rec_epoch_'+str(epochs)+'.pth'))
+    print("Generator model saved")
+
+    with open(save_dir+'/train_latent_code.csv', 'w') as f:
+        np.savetxt(f, Z, delimiter=' ')
+    print("Optimized latent code saved")
+        
+    print(colors.BLUE+"===================Training Finish==================="+colors.ENDL)
+    
+#-------------------------------------------------------------------------------
 def test(
         date,
         test_data, 
@@ -138,13 +388,19 @@ def test(
     print(colors.BLUE+"[*] start testing"+colors.ENDL)
     
     if test_data == 'DAGM_10':
-        test_loader = utils.load(data_dir='../data/DAGM_10/ng',
+        test_loader = utils.load(data_dir='../data/DAGM_10/ng_original',
             batch_size=batch_size, img_size=128, convert='L')
     elif test_data == 'DAGM_8':
         test_loader = utils.load(data_dir='../data/DAGM_8/ng',
             batch_size=batch_size, img_size=128, convert='L')
     elif test_data == 'IC':
         test_loader = utils.load(data_dir='../data/IC/ng',
+            batch_size=batch_size, img_size=128, convert='L')
+    elif test_data == 'IC1':
+        test_loader = utils.load(data_dir='../data/IC1/ng',
+            batch_size=batch_size, img_size=128, convert='L')
+    elif test_data == 'IC2':
+        test_loader = utils.load(data_dir='../data/IC2/ng',
             batch_size=batch_size, img_size=128, convert='L')
     elif test_data == 'glue':
         test_loader = utils.load(data_dir='../data/glue/ng',
@@ -214,16 +470,14 @@ def test(
             break
            
         losses = []
-        progress = tqdm(total=epochs-1, desc='batch iter % 3d' % (i+1))
+        progress = tqdm(total=epochs-1, desc='batch iter % 4d' % (i+1))
         Xi = Variable(maybe_cuda(Xi))
         zi.data = maybe_cuda(torch.FloatTensor(Z[idx.numpy()]))
         epoch_start_time = time.time()
         
         for epoch in range(epochs):
             optimizer.zero_grad()
-            rec = g(zi)
-            #print(rec.size())
-            loss = loss_fn(rec, Xi)
+            loss = loss_fn(g(zi), Xi)
             loss.backward()
             optimizer.step()
             # we don't project back to unit ball in test stage
@@ -239,153 +493,4 @@ def test(
     print("saving optimized latent code")
     with open(test_save_dir+'/'+test_data+'_test_latent_code.csv', 'w') as f:
         np.savetxt(f, Z, delimiter=' ')
-    print(colors.BLUE+"[*] test stage finish!"+colors.ENDL)
-
-#-------------------------------------------------------------------------------
-def train(
-        date,
-        dataset='DAGM_8',
-        image_output_prefix='glo',
-        code_dim=100,
-        epochs=25,
-        use_cuda=True,
-        batch_size=128,
-        lr_g=.1,
-        lr_z=.1,
-        max_num_samples=100000,
-        init='pca',
-        n_pca=(64 * 64 * 3 * 2),
-        loss='lap_l1',
-):
-    print(colors.BLUE+"================start training================"+colors.ENDL)
-    save_dir = 'results/'+dataset+'/'+date
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-
-    # load datasets for training and validation set
-    if dataset == 'DAGM_10':
-        train_loader = utils.load(data_dir='../data/DAGM_10/ok',
-            batch_size=batch_size, img_size=128, convert='L')
-        val_loader = utils.load(
-            data_dir='../data/DAGM_10/ok',
-            batch_size=8*8, img_size=128, convert='L')
-    elif dataset == 'DAGM_8':
-        train_loader = utils.load(data_dir='../data/DAGM_8/ok',
-            batch_size=batch_size, img_size=128, convert='L')
-        val_loader = utils.load(  data_dir='../data/DAGM_8/ok',
-            batch_size=8*8, img_size=128, convert='L')
-    elif dataset == 'IC':
-        train_loader = utils.load(data_dir='../data/IC/ok',
-            batch_size=batch_size, img_size=128, convert='L')
-        val_loader = utils.load(  data_dir='../data/IC/ok',
-            batch_size=8*8, img_size=128, convert='L')
-    elif dataset == 'glue':
-        train_loader = utils.load(data_dir='../data/glue/ok',
-            batch_size=batch_size, img_size=128, convert='L')
-        val_loader = utils.load(  data_dir='../data/glue/ok',
-            batch_size=8*8, img_size=128, convert='L')
-    elif dataset == 'dark':
-        train_loader = utils.load(data_dir='/home/itri/ddataa/LHE_dark/train/OK',
-            batch_size=batch_size, img_size=128, convert='L')
-        val_loader = utils.load(  data_dir='/home/itri/ddataa/LHE_dark/train/OK',
-            batch_size=8*8, img_size=128, convert='L')
-    else:
-        raise Exception("No such dataset!!")
-
-    # we don't really have a validation set here, but for visualization let us 
-    # just take the first couple images from the dataset
-
-    # initialize representation space:
-    if init == 'pca':
-        from sklearn.decomposition import PCA
-
-        # first, take a subset of train set to fit the PCA
-        X_pca = np.vstack([
-            X.cpu().numpy().reshape(len(X), -1)
-            for i, (X, _, _)
-             in zip(tqdm(range(n_pca // train_loader.batch_size), 'collect data for PCA'), 
-                    train_loader)
-        ])
-        print("perform PCA...")
-        pca = PCA(n_components=code_dim)
-        pca.fit(X_pca)
-        # then, initialize latent vectors to the pca projections of the complete dataset
-        Z = np.empty((len(train_loader.dataset), code_dim))
-        print(Z.shape)
-        for X, _, idx in tqdm(train_loader, 'pca projection'):
-            idx = idx.numpy()
-            Z[idx] = pca.transform(X.cpu().numpy().reshape(len(X), -1))
-
-    elif init == 'random':
-        Z = np.random.randn(len(train_loader.dataset), code_dim)
-    
-    else:
-        raise Exception("-i : choices=[pca random]")
-
-    # project the latent vectors into a unit ball
-    Z = utils.project_l2_ball(Z)
-
-    # we use only 1 output channel
-    g = maybe_cuda(Generator_128(code_dim, out_channels=1))
-        
-    loss_fn = LapLoss(max_levels=3) if loss == 'lap_l1' else nn.MSELoss()
-    zi = maybe_cuda(torch.zeros((batch_size, code_dim)))
-    zi = Variable(zi, requires_grad=True)
-    optimizer = SGD([
-        {'params': g.parameters(), 'lr': lr_g}, 
-        {'params': zi, 'lr': lr_z}
-    ])
-
-    Xi_val, _, idx_val = next(iter(val_loader))
-
-    utils.imsave(save_dir+'/target.png',
-           make_grid(Xi_val.cpu(),nrow=8,normalize=True,range=(0,1)).numpy().transpose(1,2,0))
-
-    overall_loss = []
-    for epoch in range(epochs):
-        epoch_start_time = time.time()
-        losses = []
-        progress = tqdm(total=len(train_loader)-1, desc='epoch % 3d' %(epoch+1))
-
-        for i, (Xi, yi, idx) in enumerate(train_loader):
-            if i == train_loader.dataset.__len__() // batch_size:
-                break
-            Xi = Variable(maybe_cuda(Xi))
-            zi.data = maybe_cuda(torch.FloatTensor(Z[idx.numpy()]))
-
-            optimizer.zero_grad()
-            rec = g(zi)
-            loss = loss_fn(rec, Xi)
-            loss.backward()
-            optimizer.step()
-
-            Z[idx.numpy()] = utils.project_l2_ball(zi.data.cpu().numpy())
-
-            losses.append(loss.item())
-            progress.set_postfix({'loss': np.mean(losses[-100:])})
-            progress.update()
-        
-        overall_loss.append(np.mean(losses[:]))
-        progress.close()
-
-        # visualize reconstructions
-        rec = g(Variable(maybe_cuda(torch.FloatTensor(Z[idx_val.numpy()]))))
-        ep_t = time.time() - epoch_start_time
-        print("avg epoch time=%.3f" % ep_t)
-
-        if (epoch+1)%100==0:
-            utils.imsave(save_dir+'/%s_rec_epoch_%04d.png' % (image_output_prefix, epoch+1), 
-               make_grid(rec.data.cpu(),nrow=8,normalize=True,range=(0,1)).numpy().transpose(1,2,0))
-    
-    utils.loss_plot(overall_loss, save_dir+'/train_loss.png')
-    print("save loss plot")
-
-    # save generator model
-    torch.save(g.state_dict(), os.path.join(save_dir,image_output_prefix+'_rec_epoch_'+str(epochs)+'.pth'))
-    print("generator model saved")
-
-    print("saving optimized latent code")
-    with open(save_dir+'/train_latent_code.csv', 'w') as f:
-        np.savetxt(f, Z, delimiter=' ')
-        
-    print(colors.BLUE+"================training finish================"+colors.ENDL)
+    print(colors.BLUE+"====================Testing Finish==================="+colors.ENDL)
