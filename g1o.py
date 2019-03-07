@@ -165,16 +165,6 @@ def train(
             batch_size=batch_size, img_size=128, convert='L')
         val_loader = utils.load(  data_dir='../data/IC1/ok',
             batch_size=8*8, img_size=128, convert='L')
-    elif dataset == 'IC2':
-        train_loader = utils.load(data_dir='../data/IC2/ok',
-            batch_size=batch_size, img_size=128, convert='L')
-        val_loader = utils.load(  data_dir='../data/IC2/ok',
-            batch_size=8*8, img_size=128, convert='L')
-    elif dataset == 'glue':
-        train_loader = utils.load(data_dir='../data/glue/ok',
-            batch_size=batch_size, img_size=128, convert='L')
-        val_loader = utils.load(  data_dir='../data/glue/ok',
-            batch_size=8*8, img_size=128, convert='L')
     elif dataset == 'dark':
         train_loader = utils.load(data_dir='/home/itri/ddataa/LHE_dark/train/OK',
             batch_size=batch_size, img_size=128, convert='L')
@@ -237,18 +227,29 @@ def train(
     # =================================================================================================
     # =========================================First part==============================================
     # =================================================================================================
-    epochs_d = 0.03*epochs
-    if epochs_d <= 1:
-        epochs_d = 1
-    if epochs_d >= 30:
-        epochs_d = 30
+    # do droping in one-third of all epochs
+    epochs_d = round(epochs/3)
     
+    # do droping 3 times
     cycle_d = 3
     for cyc in range(cycle_d)
+        train_csv = glob.glob(train_dir+'/*.csv')
+        print('train_csv : %s' % train_csv)
+        df_train = pd.read_csv(train_csv[0], header=None, delimiter='')
+        train_latent = df_train.values
+        
+        train_mu    = np.mean(train_latent, axis=1)
+        train_sigma = np.var(train_latent, axis=1)
+        
+        mu = np.mean(train_mu)
+        count_value = 0
+        ok_dir = os.listdir(os.path.join('../data', dataset, 'ok'))
+        
         for epoch in range(epochs_d):
-            losses = []
-            progress = tqdm(total=len(train_loader)-1, desc='epoch % 5d' %(epoch+1))
-
+            epoch_start_time = time.time()
+            losses= []
+            progress = tqdm(total=len(train_loader)-1, desc='epoch % 2d' %(epoch+1))
+            
             for i, (Xi, yi, idx) in enumerate(train_loader):
                 if i == train_loader.dataset.__len__() // batch_size:
                     break
@@ -256,7 +257,8 @@ def train(
                 zi.data = maybe_cuda(torch.FloatTensor(Z[idx.numpy()]))
 
                 optimizer.zero_grad()
-                loss = loss_fn(g(zi), Xi)
+                rec = g(zi)
+                loss = loss_fn(rec, Xi)
                 loss.backward()
                 optimizer.step()
 
@@ -268,106 +270,31 @@ def train(
         
             overall_loss.append(np.mean(losses[:]))
             progress.close()
-
+            
             # visualize reconstructions
             rec = g(Variable(maybe_cuda(torch.FloatTensor(Z[idx_val.numpy()]))))
-
-            if (epoch+1)%100==0:
-                utils.imsave(save_dir+'/%s_rec_epoch_%05d.png' % (image_output_prefix, epoch+1), 
+            utils.imsave(save_dir+'/%s_rec_epoch_%03d.png' % (image_output_prefix, epoch+1), 
                    make_grid(rec.data.cpu(),nrow=8,normalize=True,range=(0,1)).numpy().transpose(1,2,0))
-        utils.loss_plot(overall_loss, save_dir+'/train_loss_'+cyc+'.png')
-        print("save loss plot # %d" % cyc)
+            print("avg epoch time", time.time() - epoch_start_time)
         
-        # Save model
-        torch.save(g.state_dict(), os.path.join(save_dir,image_output_prefix+'drop_'+str(cyc)+'.pth'))
-        print("Generator model saved")
-        pretrained_file = glob.glob(save_dir+'/*.pth')
-        g.load_state_dict(torch.load(pretrained_file[0]))
-        print("Load pre-trained weights success")
-        loss_fn = LapLoss(max_levels=3) if loss == 'lap_l1' else nn.MSELoss()
-        zi = maybe_cuda(torch.zeros((batch_size, code_dim)))
-        zi = Variable(zi, requires_grad=True)
-        optimizer = Adam([{'params': zi, 'lr': lr_z}])
-        for param in g.parameters():
-            param.requires_grad = False
-
-        for i, (Xi, yi, idx) in enumerate(test_loader):
-            if i == (test_loader.dataset.__len__() // batch_size):
-                print(len(idx))
-                break
-           
-            losses = []
-            progress = tqdm(total=epochs-1, desc='batch iter % 4d' % (i+1))
-            Xi = Variable(maybe_cuda(Xi))
-            zi.data = maybe_cuda(torch.FloatTensor(Z[idx.numpy()]))
-            epoch_start_time = time.time()
+        utils.loss_plot(overall_loss, save_dir+'/train_loss.png')
+        print("save loss plot")    
+            
+        # save generator model
+        torch.save(g.state_dict(), os.path.join(save_dir,image_output_prefix+'_rec_epoch_'+str(epochs)+'.pth'))
+        print("generator model saved")    
         
-            for epoch in range(epochs):
-                optimizer.zero_grad()
-                #print(rec.size())
-                loss = loss_fn(g(zi), Xi)
-                loss.backward()
-                optimizer.step()
-                Z[idx.numpy()] = utils.project_l2_ball(zi.data.cpu().numpy())
-                losses.append(loss.item())
-                progress.set_postfix({'loss': np.mean(losses[-100:])})
-                progress.update()
-         
-            progress.close()
-
         print("saving optimized latent code")
-        with open(test_save_dir+'/'+test_data+'_test_latent_code.csv', 'w') as f:
+        with open(save_dir+'/train_latent_code.csv', 'w') as f:
             np.savetxt(f, Z, delimiter=' ')
+        
+        print(colors.BLUE+"training finish!"+colors.ENDL)
+        
         print(colors.BLUE+"====================Droping Finish==================="+colors.ENDL)
     
     # =================================================================================================
     # ========================================Second part==============================================
     # =================================================================================================
-    for epoch in range(epochs-cycle_d*epochs_d):
-        losses = []
-        progress = tqdm(total=len(train_loader)-1, desc='epoch % 3d' %(epoch+1))
-
-        for i, (Xi, yi, idx) in enumerate(train_loader):
-            if i == train_loader.dataset.__len__() // batch_size:
-                break
-            Xi = Variable(maybe_cuda(Xi))
-            zi.data = maybe_cuda(torch.FloatTensor(Z[idx.numpy()]))
-
-            optimizer.zero_grad()
-            loss = loss_fn(g(zi), Xi)
-            loss.backward()
-            optimizer.step()
-
-            Z[idx.numpy()] = utils.project_l2_ball(zi.data.cpu().numpy())
-
-            losses.append(loss.item())
-            progress.set_postfix({'loss': np.mean(losses[-100:])})
-            progress.update()
-        
-        overall_loss.append(np.mean(losses[:]))
-        progress.close()
-
-        # visualize reconstructions
-        rec = g(Variable(maybe_cuda(torch.FloatTensor(Z[idx_val.numpy()]))))
-
-        if (epoch+1)%100==0:
-            utils.imsave(save_dir+'/%s_rec_epoch_%05d.png' % (image_output_prefix, epoch+1), 
-               make_grid(rec.data.cpu(),nrow=8,normalize=True,range=(0,1)).numpy().transpose(1,2,0))
-    
-    
-    utils.loss_plot(overall_loss, save_dir+'/train_loss.png')
-    print("Loss plot saved")
-
-    # save generator model
-    torch.save(g.state_dict(), os.path.join(save_dir,image_output_prefix+'_rec_epoch_'+str(epochs)+'.pth'))
-    print("Generator model saved")
-
-    with open(save_dir+'/train_latent_code.csv', 'w') as f:
-        np.savetxt(f, Z, delimiter=' ')
-    print("Optimized latent code saved")
-        
-    print(colors.BLUE+"===================Training Finish==================="+colors.ENDL)
-    
 #-------------------------------------------------------------------------------
 def test(
         date,
