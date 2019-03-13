@@ -1,4 +1,4 @@
-import os, glob, time, random
+import os, glob, random
 import matplotlib as mpl
 mpl.use('Agg')
 import numpy as np
@@ -145,30 +145,14 @@ def train(
 
     # load datasets for training and validation set
     if dataset == 'DAGM_10':
-        train_loader = utils.load(data_dir='../data/DAGM_10/ok_original',
+        train_loader = utils.load(data_dir='../data/DAGM_10/mix',
             batch_size=batch_size, img_size=128, convert='L')
-        val_loader = utils.load(
-            data_dir='../data/DAGM_10/ok_original',
+        val_loader = utils.load(data_dir='../data/DAGM_10/mix',
             batch_size=8*8, img_size=128, convert='L')
     elif dataset == 'DAGM_8':
-        train_loader = utils.load(data_dir='../data/DAGM_8/ok',
+        train_loader = utils.load(data_dir='../data/DAGM_8/mix',
             batch_size=batch_size, img_size=128, convert='L')
-        val_loader = utils.load(  data_dir='../data/DAGM_8/ok',
-            batch_size=8*8, img_size=128, convert='L')
-    elif dataset == 'IC':
-        train_loader = utils.load(data_dir='../data/IC/ok',
-            batch_size=batch_size, img_size=128, convert='L')
-        val_loader = utils.load(  data_dir='../data/IC/ok',
-            batch_size=8*8, img_size=128, convert='L')
-    elif dataset == 'IC1':
-        train_loader = utils.load(data_dir='../data/IC1/ok',
-            batch_size=batch_size, img_size=128, convert='L')
-        val_loader = utils.load(  data_dir='../data/IC1/ok',
-            batch_size=8*8, img_size=128, convert='L')
-    elif dataset == 'dark':
-        train_loader = utils.load(data_dir='/home/itri/ddataa/LHE_dark/train/OK',
-            batch_size=batch_size, img_size=128, convert='L')
-        val_loader = utils.load(  data_dir='/home/itri/ddataa/LHE_dark/train/OK',
+        val_loader = utils.load(data_dir='../data/DAGM_8/mix',
             batch_size=8*8, img_size=128, convert='L')
     else:
         raise Exception("No such dataset!!")
@@ -219,10 +203,10 @@ def train(
 
     Xi_val, _, idx_val = next(iter(val_loader))
 
-    utils.imsave(save_dir+'/target.png',
-           make_grid(Xi_val.cpu(),nrow=8,normalize=True,range=(0,1)).numpy().transpose(1,2,0))
+#    utils.imsave(save_dir+'/target.png',
+#           make_grid(Xi_val.cpu(),nrow=8,normalize=True,range=(0,1)).numpy().transpose(1,2,0))
 
-    overall_loss = []
+#    overall_loss = []
     
     # =================================================================================================
     # =========================================First part==============================================
@@ -232,21 +216,14 @@ def train(
     
     # do droping 3 times
     cycle_d = 3
-    for cyc in range(cycle_d)
-        train_csv = glob.glob(train_dir+'/*.csv')
-        print('train_csv : %s' % train_csv)
-        df_train = pd.read_csv(train_csv[0], header=None, delimiter='')
-        train_latent = df_train.values
+    for cyc in range(cycle_d):
         
-        train_mu    = np.mean(train_latent, axis=1)
-        train_sigma = np.var(train_latent, axis=1)
-        
-        mu = np.mean(train_mu)
-        count_value = 0
-        ok_dir = os.listdir(os.path.join('../data', dataset, 'ok'))
-        
+        utils.imsave(save_dir+'/target.png',
+           make_grid(Xi_val.cpu(),nrow=8,normalize=True,range=(0,1)).numpy().transpose(1,2,0))
+
+        overall_loss = []
+
         for epoch in range(epochs_d):
-            epoch_start_time = time.time()
             losses= []
             progress = tqdm(total=len(train_loader)-1, desc='epoch % 2d' %(epoch+1))
             
@@ -273,12 +250,12 @@ def train(
             
             # visualize reconstructions
             rec = g(Variable(maybe_cuda(torch.FloatTensor(Z[idx_val.numpy()]))))
-            utils.imsave(save_dir+'/%s_rec_epoch_%03d.png' % (image_output_prefix, epoch+1), 
-                   make_grid(rec.data.cpu(),nrow=8,normalize=True,range=(0,1)).numpy().transpose(1,2,0))
-            print("avg epoch time", time.time() - epoch_start_time)
+            if (epoch % 10)==0 :
+                utils.imsave(save_dir+'/%s_epoch_%03d.png' % (image_output_prefix, epoch+1), 
+                       make_grid(rec.data.cpu(),nrow=8,normalize=True,range=(0,1)).numpy().transpose(1,2,0))
         
-        utils.loss_plot(overall_loss, save_dir+'/train_loss.png')
-        print("save loss plot")    
+            utils.loss_plot(overall_loss, save_dir+'/train_loss.png')
+            print("save loss plot")    
             
         # save generator model
         torch.save(g.state_dict(), os.path.join(save_dir,image_output_prefix+'_rec_epoch_'+str(epochs)+'.pth'))
@@ -290,12 +267,28 @@ def train(
         
         print(colors.BLUE+"training finish!"+colors.ENDL)
         
+        # Start test and drop
+        train_dir = save_dir
+        train_csv = glob.glob(train_dir+'/*.csv')
+        print('train_csv : %s' % train_csv)
+        df_train = pd.read_csv(train_csv[0], header=None, delimiter=' ')
+        train_latent = df_train.values
+        
+        train_mu    = np.mean(train_latent, axis=1)
+        train_sigma = np.var(train_latent, axis=1)
+        
+        mu = np.mean(train_mu)
+        count_value = 0
+        ok_dir = os.listdir(os.path.join('../data', dataset, 'ok'))
+        
         print(colors.BLUE+"====================Droping Finish==================="+colors.ENDL)
     
     # =================================================================================================
     # ========================================Second part==============================================
     # =================================================================================================
-#-------------------------------------------------------------------------------
+    
+    
+    
 def test(
         date,
         test_data, 
