@@ -1,4 +1,4 @@
-import os, glob, random
+import os, glob, random, time, shutil
 import matplotlib as mpl
 mpl.use('Agg')
 import numpy as np
@@ -126,7 +126,6 @@ class Generator_128(nn.Module):
 def train(
         date,
         dataset='DAGM_8',
-        image_output_prefix='glo',
         code_dim=100,
         epochs=25,
         use_cuda=True,
@@ -138,7 +137,7 @@ def train(
         n_pca=(64 * 64 * 3 * 2),
         loss='lap_l1',
 ):
-    print(colors.BLUE+"================start training================"+colors.ENDL)
+    print(colors.BLUE+"====================start training===================="+colors.ENDL)
     save_dir = 'results/'+dataset+'/'+date
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
@@ -160,72 +159,88 @@ def train(
     # we don't really have a validation set here, but for visualization let us 
     # just take the first couple images from the dataset
 
-    # initialize representation space:
-    if init == 'pca':
-        from sklearn.decomposition import PCA
-
-        # first, take a subset of train set to fit the PCA
-        X_pca = np.vstack([
-            X.cpu().numpy().reshape(len(X), -1)
-            for i, (X, _, _)
-             in zip(tqdm(range(n_pca // train_loader.batch_size), 'collect data for PCA'), 
-                    train_loader)
-        ])
-        print("perform PCA...")
-        pca = PCA(n_components=code_dim)
-        pca.fit(X_pca)
-        # then, initialize latent vectors to the pca projections of the complete dataset
-        Z = np.empty((len(train_loader.dataset), code_dim))
-        print(Z.shape)
-        for X, _, idx in tqdm(train_loader, 'pca projection'):
-            idx = idx.numpy()
-            Z[idx] = pca.transform(X.cpu().numpy().reshape(len(X), -1))
-
-    elif init == 'random':
-        Z = np.random.randn(len(train_loader.dataset), code_dim)
     
-    else:
-        raise Exception("-i : choices=[pca random]")
-
-    # project the latent vectors into a unit ball
-    Z = utils.project_l2_ball(Z)
-
-    # we use only 1 output channel
-    g = maybe_cuda(Generator_128(code_dim, out_channels=1))
-        
-    loss_fn = LapLoss(max_levels=3) if loss == 'lap_l1' else nn.MSELoss()
-    zi = maybe_cuda(torch.zeros((batch_size, code_dim)))
-    zi = Variable(zi, requires_grad=True)
-    optimizer = SGD([
-        {'params': g.parameters(), 'lr': lr_g}, 
-        {'params': zi, 'lr': lr_z}
-    ])
-
-    Xi_val, _, idx_val = next(iter(val_loader))
-
-#    utils.imsave(save_dir+'/target.png',
-#           make_grid(Xi_val.cpu(),nrow=8,normalize=True,range=(0,1)).numpy().transpose(1,2,0))
-
-#    overall_loss = []
     
     # =================================================================================================
-    # =========================================First part==============================================
+    # =========================================Train part==============================================
     # =================================================================================================
     # do droping in one-third of all epochs
     epochs_d = round(epochs/3)
+    items_all = len(os.listdir('../data/'+dataset+'/mix'))
+    per_drop_num = round(0.1*items_all)
     
     # do droping 3 times
     cycle_d = 3
     for cyc in range(cycle_d):
         
-        utils.imsave(save_dir+'/target.png',
-           make_grid(Xi_val.cpu(),nrow=8,normalize=True,range=(0,1)).numpy().transpose(1,2,0))
+        
+        # initialize representation space:
+        train_loader = utils.load(data_dir='../data/DAGM_8/mix',
+            batch_size=batch_size, img_size=128, convert='L')
+        
+        if init == 'pca':
+            from sklearn.decomposition import PCA
 
+            # first, take a subset of train set to fit the PCA
+            X_pca = np.vstack([
+                X.cpu().numpy().reshape(len(X), -1)
+                for i, (X, _, _)
+                 in zip(tqdm(range(n_pca // train_loader.batch_size), 'collect data for PCA'), 
+                        train_loader)
+            ])
+            print("perform PCA...")
+            pca = PCA(n_components=code_dim)
+            pca.fit(X_pca)
+            # then, initialize latent vectors to the pca projections of the complete dataset
+            Z = np.empty((len(train_loader.dataset), code_dim))
+            print(Z.shape)
+            for X, _, idx in tqdm(train_loader, 'pca projection'):
+                idx = idx.numpy()
+                Z[idx] = pca.transform(X.cpu().numpy().reshape(len(X), -1))
+
+        elif init == 'random':
+            Z = np.random.randn(len(train_loader.dataset), code_dim)
+        else:
+            raise Exception("-i : choices=[pca random]")
+
+        # project the latent vectors into a unit ball
+        Z = utils.project_l2_ball(Z)
+
+        # we use only 1 output channel
+        g = maybe_cuda(Generator_128(code_dim, out_channels=1))
+        
+        loss_fn = LapLoss(max_levels=3)#if loss == 'lap_l1' else nn.MSELoss()
+        zi = maybe_cuda(torch.zeros((batch_size, code_dim)))
+        zi = Variable(zi, requires_grad=True)
+        optimizer = SGD([
+            {'params': g.parameters(), 'lr': lr_g}, 
+            {'params': zi, 'lr': lr_z}
+        ])
+        val_loader = utils.load(data_dir='../data/'+dataset+'/mix',
+            batch_size=8*8, img_size=128, convert='L')
+        Xi_val, _, idx_val = next(iter(val_loader))
+
+        
+        
+        
+        
+        
+
+        
+        
+        
+        
+        
+        save_drop_dir = save_dir+'/drop_%d'%(cyc+1)
+        if not os.path.exists(save_drop_dir):
+            os.makedirs(save_drop_dir)
+        
+        utils.imsave(save_dir+'/target_%d.png'%(cyc+1),make_grid(Xi_val.cpu(),nrow=8,normalize=True,range=(0,1)).numpy().transpose(1,2,0))
         overall_loss = []
 
         for epoch in range(epochs_d):
             losses= []
-            progress = tqdm(total=len(train_loader)-1, desc='epoch % 2d' %(epoch+1))
+            progress = tqdm(total=len(train_loader)-1, desc='epoch % 3d' %(epoch+1))
             
             for i, (Xi, yi, idx) in enumerate(train_loader):
                 if i == train_loader.dataset.__len__() // batch_size:
@@ -242,7 +257,7 @@ def train(
                 Z[idx.numpy()] = utils.project_l2_ball(zi.data.cpu().numpy())
 
                 losses.append(loss.item())
-                progress.set_postfix({'loss': np.mean(losses[-100:])})
+                progress.set_postfix({'loss_%d'%(cyc+1): np.mean(losses[-100:])})
                 progress.update()
         
             overall_loss.append(np.mean(losses[:]))
@@ -250,50 +265,155 @@ def train(
             
             # visualize reconstructions
             rec = g(Variable(maybe_cuda(torch.FloatTensor(Z[idx_val.numpy()]))))
-            if (epoch % 10)==0 :
-                utils.imsave(save_dir+'/%s_epoch_%03d.png' % (image_output_prefix, epoch+1), 
+            if ((epoch+1) % 10)==0 :
+                utils.imsave(save_dir+'/part%d_epoch_%03d.png' % (cyc+1, epoch+1), 
                        make_grid(rec.data.cpu(),nrow=8,normalize=True,range=(0,1)).numpy().transpose(1,2,0))
         
-            utils.loss_plot(overall_loss, save_dir+'/train_loss.png')
-            print("save loss plot")    
+        utils.loss_plot(overall_loss, save_dir+'/train_loss.png')
+        print("save loss plot")    
             
         # save generator model
-        torch.save(g.state_dict(), os.path.join(save_dir,image_output_prefix+'_rec_epoch_'+str(epochs)+'.pth'))
+        torch.save(g.state_dict(), os.path.join(save_dir,'model_epoch_'+str(epochs)+'.pth'))
         print("generator model saved")    
         
         print("saving optimized latent code")
         with open(save_dir+'/train_latent_code.csv', 'w') as f:
             np.savetxt(f, Z, delimiter=' ')
         
-        print(colors.BLUE+"training finish!"+colors.ENDL)
+        print(colors.BLUE+"Part_%d training finished!"%(cyc+1)+colors.ENDL)
         
-        # Start test and drop
-        train_dir = save_dir
-        train_csv = glob.glob(train_dir+'/*.csv')
-        print('train_csv : %s' % train_csv)
+        # =================================================================================================
+        # =====================================Test and Drop part==========================================
+        # =================================================================================================
+
+        # initialize representation space:
+        if init == 'pca':
+            from sklearn.decomposition import PCA
+
+            # first, take a subset of train set to fit the PCA
+            X_pca = np.vstack([X.cpu().numpy().reshape(len(X), -1)
+                for i, (X, _, _)
+                 in zip(tqdm(range(n_pca // train_loader.batch_size), 'collect data for PCA'),
+                        train_loader)
+            ])
+            print("performing PCA...")
+            pca = PCA(n_components=code_dim)
+            pca.fit(X_pca)
+            # then, initialize latent vectors to the pca projections of the complete dataset
+            Z = np.empty((len(train_loader.dataset), code_dim))
+            print(Z.shape)
+            for X, _, idx in tqdm(train_loader, 'pca projection'):
+                idx = idx.numpy()
+                Z[idx] = pca.transform(X.cpu().numpy().reshape(len(X), -1))
+
+        elif init == 'random':
+            Z = np.random.randn(len(train_loader.dataset), code_dim)
+
+        # because we want to see the difference, so we don't project to unit ball
+        # but it will not show the convex property, so we still project it to unit ball
+        Z = utils.project_l2_ball(Z)
+        g = maybe_cuda(Generator_128(code_dim, out_channels=1))
+
+        pretrained_file = glob.glob(save_dir+'/*.pth')  
+        g.load_state_dict(torch.load(pretrained_file[0]))
+        print("load pre-trained weights success!!")
+
+        loss_fn = LapLoss(max_levels=3)
+        #loss_fn = nn.MSELoss()
+        zi = maybe_cuda(torch.zeros((batch_size, code_dim)))
+        zi = Variable(zi, requires_grad=True)
+        optimizer = Adam([{'params': zi, 'lr': lr_z}])    
+        #optimizer = SGD([{'params': zi, 'lr': lr_z}])
+        # fix the parameters of the generator
+        for param in g.parameters():
+            param.requires_grad = False
+
+        for i, (Xi, yi, idx) in enumerate(train_loader):
+            if i == (train_loader.dataset.__len__() // batch_size):
+                print(len(idx))
+                break
+            losses = []
+            progress = tqdm(total=epochs-1, desc='batch iter % 4d' % (i+1))
+            Xi = Variable(maybe_cuda(Xi))
+            zi.data = maybe_cuda(torch.FloatTensor(Z[idx.numpy()]))
+            epoch_start_time = time.time()
+        
+            for epoch in range(epochs):
+                optimizer.zero_grad()
+                loss = loss_fn(g(zi), Xi)
+                loss.backward()
+                optimizer.step()
+                # we don't project back to unit ball in test stage
+                #Z[idx.numpy()] = zi.data.cpu().numpy()
+                Z[idx.numpy()] = utils.project_l2_ball(zi.data.cpu().numpy())
+                #print(Z[idx.numpy()])
+                losses.append(loss.item())
+                progress.set_postfix({'loss': np.mean(losses[-100:])})
+                progress.update()
+         
+            progress.close()
+
+        print("saving optimized latent code")
+        with open(save_dir+'/test_latent_code.csv', 'w') as f:
+            np.savetxt(f, Z, delimiter=' ')
+        print(colors.BLUE+"Part_%d testing finished!"%(cyc+1)+colors.ENDL)
+                
+        # Calculate the variance and drop bigger ones
+        # read latent codes from csv
+        train_csv = glob.glob(save_dir+'/test_latent_code.csv')
         df_train = pd.read_csv(train_csv[0], header=None, delimiter=' ')
         train_latent = df_train.values
-        
+        # calculate variance and mean
         train_mu    = np.mean(train_latent, axis=1)
         train_sigma = np.var(train_latent, axis=1)
+        mu          = np.mean(train_mu)
         
-        mu = np.mean(train_mu)
-        count_value = 0
-        ok_dir = os.listdir(os.path.join('../data', dataset, 'ok'))
+        ori_items = os.listdir('../data/'+dataset+'/mix')
+        dir_num = len(ori_items)
+        count_value_ok = 0
+        value_fid = np.zeros(dir_num)
+        print('total pictures in folder : %d' % dir_num)
         
-        print(colors.BLUE+"====================Droping Finish==================="+colors.ENDL)
+        for i in range(dir_num):
+            diff_fid = train_mu[i] - mu
+            value_fid[i] = diff_fid**2 + train_sigma[i]
+        
+        # Find the first 10% large fid number
+        tmp_list = sorted(value_fid)
+        fid_threshold = tmp_list[(-1*per_drop_num)]
+        print('first 10 percent large num is : %.4f' % fid_threshold)
+
+        for j in range(dir_num):
+            if value_fid[j] >= fid_threshold:
+                shutil.move('../data/'+dataset+'/mix/'+ori_items[j], save_drop_dir+'/'+ori_items[j])
+
+        print(colors.BLUE+"Part_%d droping finished!"%(cyc+1)+colors.ENDL)
     
-    # =================================================================================================
-    # ========================================Second part==============================================
-    # =================================================================================================
+    
+    # Count
+    c1_ok, c1_ng = utils.count_ok(dataset, date, '/drop_1')
+    c2_ok, c2_ng = utils.count_ok(dataset, date, '/drop_2')
+    c3_ok, c3_ng = utils.count_ok(dataset, date, '/drop_3')
+    all_ok, all_ng = utils.count_ok_ori(dataset, 'mix')
+
+    print("+-----------+-----------+-----------+")
+    print("|First  Drop|OK: %6d |NG:  %6d|" %(c1_ok, c1_ng))
+    print("|-----------+-----------+-----------|")
+    print("|Second Drop|OK: %6d |NG:  %6d|" %(c2_ok, c2_ng))
+    print("|-----------+-----------+-----------|")
+    print("|Third  Drop|OK: %6d |NG:  %6d|" %(c3_ok, c3_ng))
+    print("|-----------+-----------+-----------|")
+    print("|The OK Part|OK: %6d |NG:  %6d|" %(all_ok, all_ng))
+    print("+-----------+-----------+-----------+")
     
     
+    print(colors.BLUE+"========================Droping Finish======================="+colors.ENDL)    
     
+#---------------------------------------------------------------------------------------------------------------
 def test(
         date,
         test_data, 
         dataset='DAGM_8',
-        image_output_prefix='glo',
         code_dim=100, 
         epochs=25,
         use_cuda=True,
