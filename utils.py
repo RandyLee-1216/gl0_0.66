@@ -13,7 +13,7 @@ from math import floor
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
-import glob, os, random
+import glob, os, csv, random
 
 
 def sample(_list, _num):
@@ -217,3 +217,25 @@ def ip_z(z1, z2, batch_size):
         z[i] = torch.lerp(z1, z2, (i/batch_size))
     
     return z
+
+def count_ok(dataset, date, data_dest):
+    items = os.listdir('./results/'+dataset+'/'+date+'/'+data_dest)
+    count_ok = 0
+    count_ng = 0
+    for names in items:
+        if names.endswith('OK.PNG'):
+            count_ok += 1
+        if names.endswith('NG.PNG'):
+            count_ng += 1
+    return(count_ok, count_ng)
+
+def count_ok_ori(dataset, data_dest):
+    items = os.listdir('../data/'+dataset+'/'+data_dest)
+    count_ok = 0
+    count_ng = 0
+    for names in items:
+        if names.endswith('OK.PNG'):
+            count_ok += 1
+        if names.endswith('NG.PNG'):
+            count_ng += 1
+    return(count_ok, count_ng)
