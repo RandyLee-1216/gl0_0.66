@@ -1,6 +1,6 @@
 import argparse, torch
-import glo
-from glo import test, train
+import glo0401
+from glo0401 import test, train
 import utils
 from utils import colors
 
@@ -12,7 +12,6 @@ def parse_args():
     parser.add_argument('-test_data',type=str)
     parser.add_argument('-date',     type=str,  required=True)
     parser.add_argument('-s',        type=str,  required=True)
-    parser.add_argument('-p',        type=str,  default='glo')
     parser.add_argument('-dim',      type=int,  default=100)
     parser.add_argument('-e',        type=int,  required=True)
     parser.add_argument('-gpu',      type=bool, default=True)
@@ -38,10 +37,10 @@ if __name__ == "__main__":
     if args.s == 'test':
         if args.test_data is None:
             raise Exception(colors.FAIL+"Must provide a data for test stage!!"+colors.ENDL)
-        test(date=args.date, test_data=args.test_data, dataset=args.dataset, image_output_prefix=args.p, code_dim=args.dim, epochs=args.e,
+        test(date=args.date, test_data=args.test_data, dataset=args.dataset, code_dim=args.dim, epochs=args.e,
             use_cuda=args.gpu, batch_size=args.b, lr_g=args.lrg, lr_z=args.lrz, init=args.i, loss=args.l)
     elif args.s == 'train':
-        train(date=args.date, dataset=args.dataset, image_output_prefix=args.p, code_dim=args.dim, epochs=args.e,
+        train(date=args.date, dataset=args.dataset, code_dim=args.dim, epochs=args.e,
             use_cuda=args.gpu, batch_size=args.b, lr_g=args.lrg, lr_z=args.lrz, init=args.i, loss=args.l)
     else:
         raise Exception(colors.FAIL+"No such stage!!"+colors.ENDL)
