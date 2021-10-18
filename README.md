@@ -1,4 +1,4 @@
-# Generative Latent Optimization version 1.8 20210130
+# Generative Latent Optimization version_1.8
 1. Training :                            python main.py -date=DATE -dataset=DATASET -s=train -e=epoch
 2. Testing :                             python main.py -date=DATE -dataset=DATASET -s=test  -e=epoch    -test_data=TEST_DATA
 3. Interpolation between latent vectors :python main.py -date=DATE -dataset=DATASET -s=ip    -e=epoch
