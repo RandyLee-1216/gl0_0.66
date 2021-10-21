@@ -1,3 +1,5 @@
+//Fréchet distance
+
 import scipy
 from scipy import linalg
 import pandas as pd
