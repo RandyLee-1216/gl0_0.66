@@ -1,3 +1,5 @@
+//Generative Latent Optimization
+
 import os, glob, random, time, shutil
 import matplotlib as mpl
 mpl.use('Agg')
