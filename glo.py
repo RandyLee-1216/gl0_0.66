@@ -218,17 +218,9 @@ def train(
             {'params': g.parameters(), 'lr': lr_g}, 
             {'params': zi, 'lr': lr_z}
         ])
-        val_loader = utils.load(data_dir='../data/'+dataset+'/mix',
-            batch_size=8*8, img_size=128, convert='L')
+        val_loader = utils.load(data_dir='../data/'+dataset+'/mix', batch_size=8*8, img_size=128, convert='L')
         Xi_val, _, idx_val = next(iter(val_loader))
 
-        
-        
-        
-        
-        
-
-        
         
         
         
